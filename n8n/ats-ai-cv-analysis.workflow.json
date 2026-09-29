@@ -1,0 +1,136 @@
+{
+  "name": "ATS - AI CV Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ats-ai-cv-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "ats-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "ats-ai-cv-analysis"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "hasOutputParser": true,
+        "text": "={{ 'Analyze this recruitment input and return only the structured result required by the output parser.\\n\\nINPUT JSON:\\n' + JSON.stringify($json.body ?? $json) }}",
+        "options": {
+          "systemMessage": "You are an ATS CV analysis assistant for recruiters. Compare the candidate CV content against the supplied job requirements. Do not make a hiring decision. Do not provide a score, rank, recommendation, protected demographic inference, or sensitive personal inference. Extract only evidence present in the CV.\\n\\nExpected input JSON:\\n{\\n  \"job_requirements\": string or string[],\\n  \"cv_text\": string\\n}\\n\\nIf job_requirements or cv_text is missing, empty, malformed, or not usable, return input_valid=false, explain the problem in error, and use empty arrays for all list fields. If the input is valid, return input_valid=true and error=null. Do not invent experience, skills, certifications, dates, employers, or education. Keep the summary concise and recruiter-friendly."
+        }
+      },
+      "id": "ats-ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        280,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"input_valid\": true,\n  \"error\": null,\n  \"candidate_summary\": \"Concise evidence-based summary of the candidate.\",\n  \"matching_skills\": [\"Skill explicitly found in the CV and relevant to the requirements\"],\n  \"relevant_experience\": [\"Relevant role, project, responsibility, or achievement found in the CV\"],\n  \"missing_required_skills\": [\"Required skill not evidenced in the CV\"],\n  \"strengths\": [\"Evidence-based candidate strength\"],\n  \"potential_gaps\": [\"Evidence-based gap or area requiring recruiter verification\"],\n  \"overall_match_analysis\": \"Balanced comparison of the CV evidence with the job requirements. Do not score, rank, or recommend hiring.\",\n  \"ai_generated\": true\n}"
+      },
+      "id": "ats-structured-output",
+      "name": "Structured Output",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        280,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "id": "ats-gemini",
+      "name": "Gemini",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        40,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.output ?? $json }}"
+      },
+      "id": "ats-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        560,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ats-ai-cv-analysis-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "pinData": {}
+}
